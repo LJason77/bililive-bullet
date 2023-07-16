@@ -1,0 +1,19 @@
+[package]
+name = "bililive-bullet"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.67"
+authors = ["LJason <ljason@ljason.cn>"]
+
+repository = "https://github.com/LJason77/bililive-bullet"
+license-file = "LICENSE"
+readme = "README.md"
+publish = false
+
+[profile.release]
+strip = "debuginfo"
+codegen-units = 1
+lto = "fat"
+panic = "abort"
+
+[dependencies]
