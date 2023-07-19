@@ -1,4 +1,5 @@
 #![deny(clippy::pedantic)]
+#![windows_subsystem = "windows"]
 
 use eframe::{egui::vec2, run_native, NativeOptions};
 
@@ -12,7 +13,6 @@ mod ui;
 fn main() -> eframe::Result<()> {
     // 读取配置
     let config = Config::read();
-    println!("{config:?}");
 
     let native_options =
         NativeOptions { initial_window_size: Some(vec2(540.0, 1080.0)), ..Default::default() };

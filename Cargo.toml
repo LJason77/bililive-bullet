@@ -11,7 +11,7 @@ readme = "README.md"
 publish = false
 
 [profile.release]
-strip = "debuginfo"
+strip = "symbols"
 codegen-units = 1
 lto = "fat"
 panic = "abort"

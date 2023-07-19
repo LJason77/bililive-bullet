@@ -1,4 +1,5 @@
 use std::{
+    env::current_dir,
     fs::{create_dir_all, read_dir, read_to_string, File},
     io::Write,
     path::{Path, PathBuf},
@@ -47,7 +48,7 @@ impl Config {
     /// 获取字体列表
     pub fn fonts() -> Vec<PathBuf> {
         // 获得根目录
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let root = current_dir().unwrap();
         // 字体目录
         let fonts = root.join("resources").join("fonts");
 
