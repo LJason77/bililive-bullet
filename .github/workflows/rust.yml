@@ -1,40 +1,29 @@
 name: Rust
 
 on:
-  push:
-    branches: [ master ]
   pull_request:
-    branches: [ master ]
+  push:
+    branches:
+      - master
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-clippy:
-    name: Run cargo build
+  style:
+    name: Check Style
     runs-on: ubuntu-latest
+
     steps:
-
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Install toolchain
+      - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
           toolchain: stable
-          default: true
-          override: true
-          components: rustfmt, clippy
-
-      - name: Cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/registry/
-            ~/.cargo/git/
-            target/
-          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+          target: x86_64-pc-windows-msvc
+          components: rustfmt
 
       - name: Run cargo format
         uses: actions-rs/cargo@v1
@@ -42,11 +31,21 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Run cargo build
-        uses: actions-rs/cargo@v1
+  lint:
+    name: Lint
+    needs: [style]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          command: build
-          args: -q --release --locked
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+          components: clippy
 
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1
@@ -55,20 +54,19 @@ jobs:
           args: -q --release -- --no-deps
 
   test:
-    name: Run cargo test
+    name: Test
+    needs: [style, lint]
     runs-on: ubuntu-latest
-    steps:
 
+    steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
           toolchain: stable
-          default: true
-          override: true
+          target: x86_64-pc-windows-msvc
 
       - name: Cache
         uses: actions/cache@v3
@@ -90,3 +88,54 @@ jobs:
         with:
           command: test
           args: -q -- --nocapture
+
+  build:
+    name: Build
+    needs: [style, lint, test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: -q --release --locked
+
+  doc:
+    name: Build docs
+    needs: [style, lint, test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+
+      - name: Run cargo doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: rustdoc
+          args: -q -- -D rustdoc::broken_intra_doc_links
