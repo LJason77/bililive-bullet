@@ -1,5 +1,6 @@
 #![deny(clippy::pedantic)]
-#![windows_subsystem = "windows"]
+// 在 release 中隐藏控制台
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use eframe::{egui::vec2, run_native, NativeOptions};
 
