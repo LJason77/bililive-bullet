@@ -1,25 +1,54 @@
-use std::fs::read;
+use std::{
+    fs::read,
+    sync::mpsc::{channel, Receiver, Sender},
+};
 
 use eframe::{
     egui::{
-        CentralPanel, Context, FontData, FontDefinitions, FontFamily, FontId, RichText, TextEdit,
-        Ui,
+        style::TextStyle, Button, CentralPanel, Context, FontData, FontDefinitions, FontFamily,
+        FontId, TextEdit, Ui,
     },
     CreationContext, Frame,
 };
-use serde::{Deserialize, Serialize};
 
-use crate::config::Config;
+use crate::{config::Config, logic::DanmuInfo};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(PartialEq)]
+pub enum State {
+    Unconnected,
+    Connecting,
+    Connected,
+}
+
+pub struct StateChannel {
+    pub state: State,
+    pub tx: Sender<State>,
+    pub rx: Receiver<State>,
+}
+
+impl StateChannel {
+    pub fn send(&self, state: State) {
+        self.tx.send(state).unwrap();
+    }
+
+    pub fn try_recv(&self) -> Option<State> {
+        self.rx.try_recv().ok()
+    }
+}
+
 pub struct App {
+    pub room_id: String,
     pub config: Config,
+    pub state: StateChannel,
 }
 
 impl App {
-    pub fn new(cc: &CreationContext<'_>, config: Config) -> Self {
+    pub fn new(cc: &CreationContext<'_>) -> Self {
         Self::configure_fonts(&cc.egui_ctx);
-        Self { config }
+        let (tx, rx) = channel();
+        let channel = StateChannel { state: State::Unconnected, tx, rx };
+        let config = Config::read();
+        Self { room_id: format!("{}", config.room_id), config, state: channel }
     }
 
     /// 配置字体
@@ -50,33 +79,50 @@ impl App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &Context, _frame: &mut Frame) {
         CentralPanel::default().show(ctx, |ui| {
-            render_address(&mut self.config, ui);
+            if let Some(state) = self.state.try_recv() {
+                self.state.state = state;
+            }
+            render_address(self, ui);
         });
     }
 }
 
-pub fn render_address(config: &mut Config, ui: &mut Ui) {
+pub fn render_address(app: &mut App, ui: &mut Ui) {
     ui.horizontal(|ui| {
-        let live_id = ui.label(
-            RichText::new("直播间：https://live.bilibili.com/").font(FontId::proportional(18.0)),
-        );
-        let room_id = ui
-            .add(
-                TextEdit::singleline(&mut config.room_id)
-                    .desired_width(90.0)
-                    .font(FontId::proportional(18.0)),
-            )
-            .labelled_by(live_id.id);
-        if room_id.lost_focus() {
-            config.update();
+        ui.style_mut().override_font_id = Some(FontId::proportional(18.0));
+        ui.style_mut().text_styles.insert(TextStyle::Button, FontId::proportional(18.0));
+
+        let live_id = ui.label("直播间：https://live.bilibili.com/");
+        ui.add(TextEdit::singleline(&mut app.room_id).desired_width(90.0)).labelled_by(live_id.id);
+
+        let state = &app.state.state;
+        if ui.add_enabled(state == &State::Unconnected, Button::new("连接")).clicked() {
+            let sender = app.state.tx.clone();
+            match app.room_id.parse::<u64>() {
+                Ok(room_id) => {
+                    tokio::spawn(async move {
+                        sender.send(State::Connecting).unwrap();
+                        match DanmuInfo::get_info(room_id).await {
+                            Ok(info) => {
+                                println!("{info:#?}");
+                            }
+                            Err(err) => {
+                                sender.send(State::Unconnected).unwrap();
+                                println!("{err:?}");
+                            }
+                        }
+                    });
+                }
+                Err(_) => {
+                    println!("错误");
+                }
+            }
         }
-        if ui.button(RichText::new("连接").font(FontId::proportional(18.0))).clicked() {
-            println!("连接");
-        }
-        if ui.button(RichText::new("断开").font(FontId::proportional(18.0))).clicked() {
+        if ui.add_enabled(state == &State::Connected, Button::new("断开")).clicked() {
+            app.state.send(State::Unconnected);
             println!("断开");
         }
-        if ui.button(RichText::new("测试").font(FontId::proportional(18.0))).clicked() {
+        if ui.button("测试").clicked() {
             println!("测试");
         }
     });

@@ -7,10 +7,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 pub struct Config {
     /// 房间 id
-    pub room_id: String,
+    pub room_id: u64,
     /// 黑暗模式
     pub dark_mode: bool,
 }
@@ -18,8 +18,8 @@ pub struct Config {
 impl Config {
     /// 初始化配置
     fn new() -> Self {
-        let config = Config { room_id: String::from("4553086"), dark_mode: true };
-        Self::update(&config);
+        let config = Config { room_id: "4553086".parse().unwrap(), dark_mode: true };
+        config.update();
         config
     }
 
